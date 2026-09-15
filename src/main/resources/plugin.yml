@@ -1,0 +1,17 @@
+name: AsterLink
+version: 1.0.0
+main: me.astermc.link.AsterLink
+api-version: '1.21'
+author: Aster MC
+description: Aster MC Minecraft-Discord linking system
+
+commands:
+  link:
+    description: Link your Minecraft account to Discord
+    usage: /link
+    permission: asterlink.link
+
+permissions:
+  asterlink.link:
+    description: Allows players to use /link
+    default: true

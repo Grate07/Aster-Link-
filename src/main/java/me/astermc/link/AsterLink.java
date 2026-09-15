@@ -1,40 +1,31 @@
 package me.astermc.link;
 
-import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
-import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.geysermc.floodgate.api.FloodgateApi;
 
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
 import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.util.concurrent.ThreadLocalRandom;
+import java.nio.charset.StandardCharsets;
+import java.util.Random;
 
-public class AsterLink extends JavaPlugin implements CommandExecutor {
+public class AsterLink extends JavaPlugin {
 
-    private HttpClient httpClient;
     private String apiUrl;
     private String apiSecret;
 
     @Override
     public void onEnable() {
+
         saveDefaultConfig();
 
         apiUrl = getConfig().getString("api-url");
         apiSecret = getConfig().getString("api-secret");
 
-        httpClient = HttpClient.newHttpClient();
-
-        if (getCommand("link") != null) {
-            getCommand("link").setExecutor(this);
-        }
-
-        getLogger().info("Aster MC Link enabled.");
-        getLogger().info("Geyser/Floodgate linking support enabled.");
+        getLogger().info("AsterLink has been enabled!");
     }
 
     @Override
@@ -44,170 +35,120 @@ public class AsterLink extends JavaPlugin implements CommandExecutor {
             String label,
             String[] args
     ) {
+
         if (!(sender instanceof Player player)) {
             sender.sendMessage("Only players can use this command.");
             return true;
         }
 
-        if (args.length != 0) {
-            player.sendMessage(
-                    ChatColor.RED + "Usage: /link"
-            );
+        if (!command.getName().equalsIgnoreCase("link")) {
             return true;
         }
 
         FloodgateApi floodgate = FloodgateApi.getInstance();
 
         if (!floodgate.isFloodgatePlayer(player.getUniqueId())) {
-            player.sendMessage("");
-            player.sendMessage(
-                    ChatColor.RED +
-                    "Aster MC » You must be connected through Bedrock/Floodgate."
-            );
-            player.sendMessage("");
+            player.sendMessage("§cAsterLink is currently available for Bedrock players only.");
             return true;
         }
 
-        String uuid = player.getUniqueId().toString();
-        String username = player.getName();
+        String code = generateCode();
 
-        int codeNumber =
-                ThreadLocalRandom.current().nextInt(100000, 1000000);
-
-        String code = String.valueOf(codeNumber);
-
+        player.sendMessage("§8§m--------------------------");
+        player.sendMessage("§b§lASTER MC §7| Discord Linking");
         player.sendMessage("");
-        player.sendMessage(
-                ChatColor.DARK_AQUA +
-                "━━━━━━━━━━━━━━━━━━━━"
-        );
-
-        player.sendMessage(
-                ChatColor.AQUA +
-                "        ASTER MC"
-        );
-
+        player.sendMessage("§fYour linking code:");
+        player.sendMessage("§b§l" + code);
         player.sendMessage("");
+        player.sendMessage("§7Use §f/link " + code + " §7in the Aster MC Discord.");
+        player.sendMessage("§7This code expires in §f5 minutes§7.");
+        player.sendMessage("§8§m--------------------------");
 
-        player.sendMessage(
-                ChatColor.GRAY +
-                "Your Discord linking code:"
-        );
-
-        player.sendMessage(
-                ChatColor.WHITE +
-                "          " +
-                ChatColor.BOLD +
-                code
-        );
-
-        player.sendMessage("");
-
-        player.sendMessage(
-                ChatColor.GRAY +
-                "Use this code in Discord:"
-        );
-
-        player.sendMessage(
-                ChatColor.AQUA +
-                "          /link " +
-                code
-        );
-
-        player.sendMessage("");
-
-        player.sendMessage(
-                ChatColor.GRAY +
-                "Expires in 5 minutes."
-        );
-
-        player.sendMessage(
-                ChatColor.DARK_AQUA +
-                "━━━━━━━━━━━━━━━━━━━━"
-        );
-
-        player.sendMessage("");
-
-        createLinkCode(player, uuid, username, code);
+        sendCodeToApi(player, code);
 
         return true;
     }
 
-    private void createLinkCode(
-            Player player,
-            String uuid,
-            String username,
-            String code
-    ) {
+    private String generateCode() {
+        Random random = new Random();
+        return String.format("%06d", random.nextInt(1_000_000));
+    }
 
-        String json =
-                "{"
-                + "\"minecraftUuid\":\""
-                + escapeJson(uuid)
-                + "\","
-                + "\"minecraftUsername\":\""
-                + escapeJson(username)
-                + "\","
-                + "\"code\":\""
-                + escapeJson(code)
-                + "\""
-                + "}";
+    private void sendCodeToApi(Player player, String code) {
 
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(
-                        URI.create(
-                                apiUrl + "/api/link/create"
-                        )
-                )
-                .header(
+        getServer().getScheduler().runTaskAsynchronously(this, () -> {
+
+            try {
+
+                URI uri = URI.create(apiUrl + "/api/link/create");
+
+                HttpURLConnection connection =
+                        (HttpURLConnection) uri.toURL().openConnection();
+
+                connection.setRequestMethod("POST");
+                connection.setRequestProperty(
                         "Content-Type",
                         "application/json"
-                )
-                .header(
+                );
+
+                connection.setRequestProperty(
                         "Authorization",
                         "Bearer " + apiSecret
-                )
-                .POST(
-                        HttpRequest.BodyPublishers.ofString(json)
-                )
-                .build();
+                );
 
-        httpClient.sendAsync(
-                request,
-                HttpResponse.BodyHandlers.ofString()
-        ).thenAccept(response -> {
+                connection.setDoOutput(true);
 
-            if (response.statusCode() != 200) {
+                String json = """
+                        {
+                          "minecraftUuid": "%s",
+                          "minecraftUsername": "%s",
+                          "code": "%s"
+                        }
+                        """.formatted(
+                        player.getUniqueId(),
+                        escapeJson(player.getName()),
+                        code
+                );
+
+                try (OutputStream outputStream =
+                             connection.getOutputStream()) {
+
+                    outputStream.write(
+                            json.getBytes(StandardCharsets.UTF_8)
+                    );
+                }
+
+                int responseCode = connection.getResponseCode();
+
+                if (responseCode != 200) {
+
+                    getLogger().warning(
+                            "AsterLink API returned HTTP " + responseCode
+                    );
+
+                    player.sendMessage(
+                            "§cCould not create your linking code. Please try again."
+                    );
+                }
+
+                connection.disconnect();
+
+            } catch (Exception error) {
 
                 getLogger().warning(
-                        "Link API returned HTTP "
-                        + response.statusCode()
-                        + ": "
-                        + response.body()
+                        "Could not connect to AsterLink API: "
+                                + error.getMessage()
+                );
+
+                player.sendMessage(
+                        "§cCould not connect to the Aster MC linking service."
                 );
             }
-
-        }).exceptionally(error -> {
-
-            getLogger().warning(
-                    "Could not connect to Aster Link API: "
-                    + error.getMessage()
-            );
-
-            getServer().getScheduler().runTask(
-                    this,
-                    () -> player.sendMessage(
-                            ChatColor.RED +
-                            "Aster MC » Unable to contact linking service."
-                    )
-            );
-
-            return null;
         });
     }
 
-    private String escapeJson(String value) {
-        return value
+    private String escapeJson(String text) {
+        return text
                 .replace("\\", "\\\\")
                 .replace("\"", "\\\"");
     }

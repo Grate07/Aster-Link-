@@ -22,11 +22,10 @@ jobs:
           cache: maven
 
       - name: Build plugin
-        working-directory: aster-link-plugin
         run: mvn clean package
 
       - name: Upload plugin JAR
         uses: actions/upload-artifact@v4
         with:
           name: AsterLink
-          path: aster-link-plugin/target/*.jar
+          path: target/*.jar

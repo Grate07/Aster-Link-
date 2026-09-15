@@ -1,0 +1,5 @@
+api-url: "https://aster-link.onrender.com"
+
+api-secret: "postgresql://postgres:TauheedIsGrateISGrey@db.puxptlmlnghnonvwnznu.supabase.co:5432/postgres"
+
+code-expiry: 300

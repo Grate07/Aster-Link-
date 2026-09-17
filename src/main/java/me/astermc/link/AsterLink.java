@@ -5,12 +5,10 @@ import com.velocitypowered.api.command.CommandManager;
 import com.velocitypowered.api.command.SimpleCommand;
 import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
-import com.velocitypowered.api.plugin.Dependency;
 import com.velocitypowered.api.plugin.Plugin;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import net.kyori.adventure.text.Component;
-import org.geysermc.floodgate.api.FloodgateApi;
 import org.slf4j.Logger;
 
 import java.io.OutputStream;
@@ -18,17 +16,13 @@ import java.net.HttpURLConnection;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
-import java.util.UUID;
 
 @Plugin(
         id = "asterlink",
         name = "AsterLink",
         version = "1.0.0",
-        description = "Aster MC Discord linking for Velocity, Geyser and Floodgate",
-        authors = {"Aster MC"},
-        dependencies = {
-                @Dependency(id = "floodgate")
-        }
+        description = "Aster MC Discord account linking for Java and Bedrock",
+        authors = {"Aster MC"}
 )
 public class AsterLink {
 
@@ -65,7 +59,8 @@ public class AsterLink {
         );
 
         logger.info("AsterLink has been enabled!");
-        logger.info("Aster MC Discord linking command registered!");
+        logger.info("Aster MC account linking command registered!");
+        logger.info("AsterLink supports Java and Bedrock players.");
     }
 
     private void loadConfig() {
@@ -98,23 +93,8 @@ public class AsterLink {
                 return;
             }
 
-            FloodgateApi floodgate =
-                    FloodgateApi.getInstance();
-
-            UUID uuid = player.getUniqueId();
-
-            if (!floodgate.isFloodgatePlayer(uuid)) {
-
-                player.sendMessage(
-                        Component.text(
-                                "§cAsterLink is currently available for Bedrock players only."
-                        )
-                );
-
-                return;
-            }
-
-            if (apiUrl == null || apiSecret == null) {
+            if (apiUrl == null || apiUrl.isBlank()
+                    || apiSecret == null || apiSecret.isBlank()) {
 
                 player.sendMessage(
                         Component.text(
@@ -161,8 +141,13 @@ public class AsterLink {
 
             player.sendMessage(
                     Component.text(
-                            "§7Use §f/link " + code +
-                            " §7in the Aster MC Discord."
+                            "§7Go to the Aster MC Discord"
+                    )
+            );
+
+            player.sendMessage(
+                    Component.text(
+                            "§7and use §f/link code:" + code
                     )
             );
 
@@ -201,8 +186,7 @@ public class AsterLink {
                     try {
 
                         URI uri = URI.create(
-                                apiUrl +
-                                "/api/link/create"
+                                apiUrl + "/api/link/create"
                         );
 
                         HttpURLConnection connection =
@@ -223,7 +207,6 @@ public class AsterLink {
 
                         connection.setConnectTimeout(10000);
                         connection.setReadTimeout(10000);
-
                         connection.setDoOutput(true);
 
                         String json = """

@@ -1,3 +1,6 @@
+
+# Discontinued!
+
 # AsterLink
 
 AsterLink is the account-linking system for **Aster MC**. It connects a Minecraft Bedrock account with a Discord account using a short-lived 6-digit code.
